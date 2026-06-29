@@ -1,0 +1,355 @@
+{
+  "info": {
+    "name": "WorkForcePro – API Test Suite",
+    "_postman_id": "wfp-api-suite-v1",
+    "description": "Complete Postman test collection for WorkForcePro Workforce Management Platform.\n\nCovers all 7 endpoints across Employees and Training APIs with positive, negative, and edge-case scenarios.\n\nSETUP BEFORE RUNNING:\n1. Set {{base_url}}    → e.g. https://api.workforcepro.com\n2. Set {{auth_token}}  → valid Supervisor-level Bearer token\n3. Set {{training_id}} → ID of an existing training module (e.g. TRN-001)\n4. Run in ORDER — PS-001 auto-populates {{employee_id}} for all downstream requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url",      "value": "https://api.workforcepro.com", "type": "string" },
+    { "key": "auth_token",    "value": "YOUR_BEARER_TOKEN_HERE",        "type": "string" },
+    { "key": "employee_id",   "value": "",                              "type": "string" },
+    { "key": "training_id",   "value": "TRN-001",                       "type": "string" },
+    { "key": "assignment_id", "value": "",                              "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{auth_token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "GREEN POSITIVE SCENARIOS",
+      "item": [
+        {
+          "name": "PS-001 | POST /api/employees – Create Employee (Valid)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[PS-001] Status code is 201 Created', () => { pm.response.to.have.status(201); });",
+            "pm.test('[PS-001] Response time under 2000ms', () => { pm.expect(pm.response.responseTime).to.be.below(2000); });",
+            "pm.test('[PS-001] Content-Type is application/json', () => { pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'); });",
+            "pm.test('[PS-001] Response body is valid JSON', () => { pm.response.to.be.json; });",
+            "const json = pm.response.json();",
+            "pm.test('[PS-001] Response contains required fields: id, employee_id, name, email, department', () => {",
+            "  ['id','employee_id','name','email','department','supervisor_id'].forEach(f => pm.expect(json, 'Missing: '+f).to.have.property(f));",
+            "});",
+            "pm.test('[PS-001] Returned name matches submitted name', () => { pm.expect(json.name).to.equal('Alice Johnson'); });",
+            "pm.test('[PS-001] Returned email matches submitted email (case-normalised)', () => { pm.expect(json.email.toLowerCase()).to.equal('alice.johnson@workforcepro.com'); });",
+            "pm.test('[PS-001] Email format is valid', () => { pm.expect(json.email).to.match(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/); });",
+            "pm.test('[PS-001] id field is non-empty', () => { pm.expect(json.id).to.exist; pm.expect(String(json.id).length).to.be.above(0); });",
+            "pm.test('[PS-001] employee_id matches submitted value', () => { pm.expect(json.employee_id).to.equal('EMP-3001'); });",
+            "if (json.id) { pm.collectionVariables.set('employee_id', String(json.id)); console.log('[PS-001] Saved employee_id:', json.id); }"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"employee_id\": \"EMP-3001\",\n  \"name\": \"Alice Johnson\",\n  \"email\": \"alice.johnson@workforcepro.com\",\n  \"department\": \"Engineering\",\n  \"supervisor_id\": \"SUP-001\"\n}" },
+            "url": { "raw": "{{base_url}}/api/employees", "host": ["{{base_url}}"], "path": ["api","employees"] }
+          }
+        },
+        {
+          "name": "PS-002 | GET /api/employees/{id} – Retrieve Employee (Valid)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[PS-002] Status code is 200 OK', () => { pm.response.to.have.status(200); });",
+            "pm.test('[PS-002] Response time under 1000ms', () => { pm.expect(pm.response.responseTime).to.be.below(1000); });",
+            "pm.test('[PS-002] Response is valid JSON', () => { pm.response.to.be.json; });",
+            "const json = pm.response.json();",
+            "pm.test('[PS-002] Response contains all employee fields', () => { ['id','employee_id','name','email','department'].forEach(f => pm.expect(json,'Missing: '+f).to.have.property(f)); });",
+            "pm.test('[PS-002] Returned id matches requested id', () => { pm.expect(String(json.id)).to.equal(pm.collectionVariables.get('employee_id')); });",
+            "pm.test('[PS-002] Name is non-empty string', () => { pm.expect(json.name).to.be.a('string').and.not.be.empty; });",
+            "pm.test('[PS-002] Email is valid format', () => { pm.expect(json.email).to.match(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/); });"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/employees/{{employee_id}}", "host": ["{{base_url}}"], "path": ["api","employees","{{employee_id}}"] }
+          }
+        },
+        {
+          "name": "PS-003 | PUT /api/employees/{id} – Update Employee (Valid)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[PS-003] Status code is 200 OK', () => { pm.response.to.have.status(200); });",
+            "const json = pm.response.json();",
+            "pm.test('[PS-003] Updated department reflected in response', () => { pm.expect(json.department).to.equal('Operations'); });",
+            "pm.test('[PS-003] Updated supervisor_id reflected in response', () => { pm.expect(json.supervisor_id).to.equal('SUP-002'); });",
+            "pm.test('[PS-003] id is unchanged after update', () => { pm.expect(String(json.id)).to.equal(pm.collectionVariables.get('employee_id')); });",
+            "pm.test('[PS-003] updated_at timestamp present', () => { pm.expect(json).to.have.property('updated_at'); pm.expect(json.updated_at).to.not.be.null; });"
+          ]}}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"department\": \"Operations\",\n  \"supervisor_id\": \"SUP-002\"\n}" },
+            "url": { "raw": "{{base_url}}/api/employees/{{employee_id}}", "host": ["{{base_url}}"], "path": ["api","employees","{{employee_id}}"] }
+          }
+        },
+        {
+          "name": "PS-004 | POST /api/trainings/assign – Assign Training (Valid)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[PS-004] Status code is 201 Created', () => { pm.response.to.have.status(201); });",
+            "const json = pm.response.json();",
+            "pm.test('[PS-004] Response contains assignment fields: id, employee_id, training_id, status, due_date', () => { ['id','employee_id','training_id','status','due_date'].forEach(f => pm.expect(json,'Missing: '+f).to.have.property(f)); });",
+            "pm.test('[PS-004] Status is Pending on new assignment', () => { pm.expect(json.status.toLowerCase()).to.be.oneOf(['pending','assigned']); });",
+            "pm.test('[PS-004] due_date is present and non-empty', () => { pm.expect(json.due_date).to.exist.and.not.be.empty; });",
+            "pm.test('[PS-004] due_date is valid ISO 8601 date', () => { pm.expect(json.due_date).to.match(/^\\d{4}-\\d{2}-\\d{2}/); });",
+            "pm.test('[PS-004] employee_id matches request', () => { pm.expect(String(json.employee_id)).to.equal(pm.collectionVariables.get('employee_id')); });",
+            "if (json.id) { pm.collectionVariables.set('assignment_id', String(json.id)); }"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"employee_id\": \"{{employee_id}}\",\n  \"training_id\": \"{{training_id}}\",\n  \"due_date\": \"2025-09-30\"\n}" },
+            "url": { "raw": "{{base_url}}/api/trainings/assign", "host": ["{{base_url}}"], "path": ["api","trainings","assign"] }
+          }
+        },
+        {
+          "name": "PS-005 | POST /api/trainings/complete – Complete Training (Valid)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[PS-005] Status code is 200 OK', () => { pm.response.to.have.status(200); });",
+            "const json = pm.response.json();",
+            "pm.test('[PS-005] Status is awaiting_approval after completion', () => { pm.expect(json.status.toLowerCase()).to.be.oneOf(['awaiting_approval','pending_approval','completed']); });",
+            "pm.test('[PS-005] completion_date is present and non-null', () => { pm.expect(json.completion_date).to.exist.and.not.be.null; });",
+            "pm.test('[PS-005] BUSINESS RULE: completion_date is not a future date', () => {",
+            "  const cd = new Date(json.completion_date); const today = new Date(); today.setHours(23,59,59,999);",
+            "  pm.expect(cd.getTime()).to.be.at.most(today.getTime());",
+            "});",
+            "pm.test('[PS-005] notes field is present', () => { pm.expect(json).to.have.property('notes'); });"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"employee_id\": \"{{employee_id}}\",\n  \"training_id\": \"{{training_id}}\",\n  \"completion_date\": \"2025-07-01\",\n  \"notes\": \"Completed the module and passed the assessment with 92%.\"\n}" },
+            "url": { "raw": "{{base_url}}/api/trainings/complete", "host": ["{{base_url}}"], "path": ["api","trainings","complete"] }
+          }
+        },
+        {
+          "name": "PS-006 | POST /api/trainings/approve – Approve Training (Valid)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[PS-006] Status code is 200 OK', () => { pm.response.to.have.status(200); });",
+            "const json = pm.response.json();",
+            "pm.test('[PS-006] Status is approved', () => { pm.expect(json.status.toLowerCase()).to.equal('approved'); });",
+            "pm.test('[PS-006] approved_by is present and non-empty', () => { pm.expect(json).to.have.property('approved_by'); pm.expect(String(json.approved_by)).to.not.be.empty; });",
+            "pm.test('[PS-006] approved_at timestamp is present', () => { pm.expect(json).to.have.property('approved_at'); pm.expect(json.approved_at).to.not.be.null; });",
+            "pm.test('[PS-006] employee_id matches request', () => { pm.expect(String(json.employee_id)).to.equal(pm.collectionVariables.get('employee_id')); });"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"employee_id\": \"{{employee_id}}\",\n  \"training_id\": \"{{training_id}}\",\n  \"action\": \"approve\",\n  \"supervisor_id\": \"SUP-001\"\n}" },
+            "url": { "raw": "{{base_url}}/api/trainings/approve", "host": ["{{base_url}}"], "path": ["api","trainings","approve"] }
+          }
+        },
+        {
+          "name": "PS-007 | DELETE /api/employees/{id} – Delete Employee (Valid)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[PS-007] Status code is 200 or 204', () => { pm.expect(pm.response.code).to.be.oneOf([200,204]); });",
+            "pm.test('[PS-007] Response time under 2000ms', () => { pm.expect(pm.response.responseTime).to.be.below(2000); });",
+            "if (pm.response.code === 200) { pm.test('[PS-007] Response confirms deletion', () => { const j = pm.response.json(); pm.expect(j.message || j.deleted || j.success).to.exist; }); }"
+          ]}}],
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{base_url}}/api/employees/{{employee_id}}", "host": ["{{base_url}}"], "path": ["api","employees","{{employee_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "RED NEGATIVE SCENARIOS",
+      "item": [
+        {
+          "name": "NS-001 | POST /api/employees – Duplicate Email Rejected",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[NS-001] Status is 409 or 422 – duplicate email rejected', () => { pm.expect(pm.response.code).to.be.oneOf([409,422]); });",
+            "const json = pm.response.json();",
+            "pm.test('[NS-001] Error response contains error or message field', () => { pm.expect(json.error || json.message || json.errors).to.exist; });",
+            "pm.test('[NS-001] Error message references email or duplicate', () => { const t = JSON.stringify(json).toLowerCase(); pm.expect(t).to.satisfy(s => s.includes('email') || s.includes('duplicate') || s.includes('already') || s.includes('exists')); });",
+            "pm.test('[NS-001] No new employee record returned (no id)', () => { pm.expect(json.id).to.not.exist; });",
+            "if (pm.response.code===200) { console.error('[NS-001] DEFECT BUG-001: Duplicate email accepted – second record created'); }"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"employee_id\": \"EMP-DUPE-001\",\n  \"name\": \"Duplicate User\",\n  \"email\": \"alice.johnson@workforcepro.com\",\n  \"department\": \"Finance\",\n  \"supervisor_id\": \"SUP-001\"\n}" },
+            "url": { "raw": "{{base_url}}/api/employees", "host": ["{{base_url}}"], "path": ["api","employees"] }
+          }
+        },
+        {
+          "name": "NS-002 | GET /api/employees/{id} – Non-Existent ID Returns 404",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[NS-002] Status code is 404 Not Found', () => { pm.response.to.have.status(404); });",
+            "const json = pm.response.json();",
+            "pm.test('[NS-002] Error message is present', () => { pm.expect(json.error || json.message || json.detail).to.exist; });",
+            "pm.test('[NS-002] No stack trace or DB error exposed', () => { const b = pm.response.text().toLowerCase(); ['stacktrace','stack_trace','activerecord','sqlexception','ora-','mysql'].forEach(l => pm.expect(b,'Leaked: '+l).to.not.include(l)); });"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/employees/NON-EXISTENT-ID-00000", "host": ["{{base_url}}"], "path": ["api","employees","NON-EXISTENT-ID-00000"] }
+          }
+        },
+        {
+          "name": "NS-003 | POST /api/employees – Missing Required Fields Rejected",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[NS-003] Status is 400 or 422 for missing fields', () => { pm.expect(pm.response.code).to.be.oneOf([400,422]); });",
+            "const json = pm.response.json();",
+            "pm.test('[NS-003] Error references required or missing fields', () => { const t = JSON.stringify(json).toLowerCase(); pm.expect(t).to.satisfy(s => s.includes('required') || s.includes('missing') || s.includes('blank') || s.includes('name')); });",
+            "pm.test('[NS-003] No employee record created', () => { pm.expect(json.id).to.not.exist; });"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"incomplete@workforcepro.com\"\n}" },
+            "url": { "raw": "{{base_url}}/api/employees", "host": ["{{base_url}}"], "path": ["api","employees"] }
+          }
+        },
+        {
+          "name": "NS-004 | POST /api/trainings/assign – Invalid Training ID Rejected",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[NS-004] Status is 404 or 422 for invalid training_id', () => { pm.expect(pm.response.code).to.be.oneOf([404,422]); });",
+            "const json = pm.response.json();",
+            "pm.test('[NS-004] Error references training or not found', () => { const t = JSON.stringify(json).toLowerCase(); pm.expect(t).to.satisfy(s => s.includes('training') || s.includes('not found') || s.includes('invalid')); });",
+            "pm.test('[NS-004] No assignment created', () => { pm.expect(json.id).to.not.exist; });"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"employee_id\": \"{{employee_id}}\",\n  \"training_id\": \"TRN-INVALID-99999\",\n  \"due_date\": \"2025-09-30\"\n}" },
+            "url": { "raw": "{{base_url}}/api/trainings/assign", "host": ["{{base_url}}"], "path": ["api","trainings","assign"] }
+          }
+        },
+        {
+          "name": "NS-005 | POST /api/trainings/complete – Unassigned Training Blocked (OJT-004)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[NS-005] Status is 403, 404, or 422 – unassigned training blocked', () => { pm.expect(pm.response.code).to.be.oneOf([403,404,422]); });",
+            "const json = pm.response.json();",
+            "pm.test('[NS-005] Error references not assigned or not found', () => { const t = JSON.stringify(json).toLowerCase(); pm.expect(t).to.satisfy(s => s.includes('not assigned') || s.includes('not found') || s.includes('forbidden') || s.includes('assigned')); });",
+            "pm.test('[NS-005] Training NOT marked as completed', () => { pm.expect(json.status && json.status.toLowerCase()==='completed').to.be.false; });"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"employee_id\": \"{{employee_id}}\",\n  \"training_id\": \"TRN-UNASSIGNED-888\",\n  \"completion_date\": \"2025-07-01\",\n  \"notes\": \"Attempting completion of a module never assigned to this employee.\"\n}" },
+            "url": { "raw": "{{base_url}}/api/trainings/complete", "host": ["{{base_url}}"], "path": ["api","trainings","complete"] }
+          }
+        },
+        {
+          "name": "NS-006 | POST /api/trainings/approve – Approve Non-Completed Training Blocked (OJT-003)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[NS-006] Status is 400, 403, or 422 – pending training cannot be approved', () => { pm.expect(pm.response.code).to.be.oneOf([400,403,422]); });",
+            "const json = pm.response.json();",
+            "pm.test('[NS-006] Error references status or completion requirement', () => { const t = JSON.stringify(json).toLowerCase(); pm.expect(t).to.satisfy(s => s.includes('not completed') || s.includes('pending') || s.includes('status') || s.includes('cannot approve')); });",
+            "pm.test('[NS-006] Status is NOT approved', () => { pm.expect(json.status && json.status.toLowerCase()==='approved').to.be.false; });",
+            "if (pm.response.code===200) { console.error('[NS-006] DEFECT: Pending training approved without completion – OJT-003 not enforced at API level'); }"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"employee_id\": \"{{employee_id}}\",\n  \"training_id\": \"TRN-PENDING-NOT-SUBMITTED-777\",\n  \"action\": \"approve\",\n  \"supervisor_id\": \"SUP-001\"\n}" },
+            "url": { "raw": "{{base_url}}/api/trainings/approve", "host": ["{{base_url}}"], "path": ["api","trainings","approve"] }
+          }
+        },
+        {
+          "name": "NS-007 | POST /api/trainings/complete – Future Completion Date Rejected",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[NS-007] Status is 400 or 422 – future completion date rejected', () => { pm.expect(pm.response.code).to.be.oneOf([400,422]); });",
+            "const json = pm.response.json();",
+            "pm.test('[NS-007] Error references invalid date or future', () => { const t = JSON.stringify(json).toLowerCase(); pm.expect(t).to.satisfy(s => s.includes('date') || s.includes('future') || s.includes('invalid')); });",
+            "if (pm.response.code===200) { console.error('[NS-007] DEFECT BUG-005 CONFIRMED: Future completion date accepted by API'); }"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"employee_id\": \"{{employee_id}}\",\n  \"training_id\": \"{{training_id}}\",\n  \"completion_date\": \"2099-12-31\",\n  \"notes\": \"Testing rejection of far-future completion date.\"\n}" },
+            "url": { "raw": "{{base_url}}/api/trainings/complete", "host": ["{{base_url}}"], "path": ["api","trainings","complete"] }
+          }
+        },
+        {
+          "name": "NS-008 | Any Endpoint – Unauthenticated Request Returns 401",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[NS-008] Status code is 401 Unauthorized', () => { pm.response.to.have.status(401); });",
+            "pm.test('[NS-008] Protected data not exposed in response', () => { const b = pm.response.text(); pm.expect(b).to.not.include('@workforcepro.com'); pm.expect(b).to.not.include('employee_id'); });",
+            "pm.test('[NS-008] Error indicates authentication required', () => { const t = pm.response.text().toLowerCase(); pm.expect(t).to.satisfy(s => s.includes('unauthorized') || s.includes('unauthenticated') || s.includes('token') || s.includes('auth')); });"
+          ]}}],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/employees/{{employee_id}}", "host": ["{{base_url}}"], "path": ["api","employees","{{employee_id}}"] }
+          }
+        },
+        {
+          "name": "NS-009 | PUT /api/employees/{id} – Update to Duplicate Email Rejected",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[NS-009] Status is 409 or 422 – duplicate email on update rejected', () => { pm.expect(pm.response.code).to.be.oneOf([409,422]); });",
+            "const json = pm.response.json();",
+            "pm.test('[NS-009] Error references email uniqueness', () => { const t = JSON.stringify(json).toLowerCase(); pm.expect(t).to.satisfy(s => s.includes('email') || s.includes('duplicate') || s.includes('taken') || s.includes('exists')); });",
+            "if (pm.response.code===200) { console.error('[NS-009] DEFECT: Duplicate email accepted on PUT – variant of BUG-001'); }"
+          ]}}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"another.existing.employee@workforcepro.com\"\n}" },
+            "url": { "raw": "{{base_url}}/api/employees/{{employee_id}}", "host": ["{{base_url}}"], "path": ["api","employees","{{employee_id}}"] }
+          }
+        },
+        {
+          "name": "NS-010 | POST /api/trainings/approve – Reject with Blank Reason Blocked",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[NS-010] Status is 400 or 422 – blank rejection_reason rejected', () => { pm.expect(pm.response.code).to.be.oneOf([400,422]); });",
+            "const json = pm.response.json();",
+            "pm.test('[NS-010] Error references rejection_reason being required', () => { const t = JSON.stringify(json).toLowerCase(); pm.expect(t).to.satisfy(s => s.includes('reason') || s.includes('required') || s.includes('blank')); });",
+            "if (pm.response.code===200) { console.error('[NS-010] DEFECT BUG-006 CONFIRMED: Empty rejection_reason accepted at API level'); }"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"employee_id\": \"{{employee_id}}\",\n  \"training_id\": \"{{training_id}}\",\n  \"action\": \"reject\",\n  \"supervisor_id\": \"SUP-001\",\n  \"rejection_reason\": \"\"\n}" },
+            "url": { "raw": "{{base_url}}/api/trainings/approve", "host": ["{{base_url}}"], "path": ["api","trainings","approve"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "EDGE CASES",
+      "item": [
+        {
+          "name": "EC-001 | POST /api/employees – SQL Injection in Name Field Blocked",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[EC-001] Status is 400 or 422 – SQL injection payload rejected', () => { pm.expect(pm.response.code).to.be.oneOf([400,422]); });",
+            "pm.test('[EC-001] No DB error or SQL syntax exposed', () => { const b = pm.response.text().toLowerCase(); ['syntax error','sql','mysql','postgresql','ora-','sqlite'].forEach(l => pm.expect(b,'DB info leaked: '+l).to.not.include(l)); });"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"employee_id\": \"EMP-SEC-001\",\n  \"name\": \"'; DROP TABLE employees; --\",\n  \"email\": \"sqlinject@sectest.com\",\n  \"department\": \"IT\",\n  \"supervisor_id\": \"SUP-001\"\n}" },
+            "url": { "raw": "{{base_url}}/api/employees", "host": ["{{base_url}}"], "path": ["api","employees"] }
+          }
+        },
+        {
+          "name": "EC-002 | POST /api/employees – Empty Body {} Handled Gracefully",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[EC-002] Status is 400 or 422 – empty body rejected', () => { pm.expect(pm.response.code).to.be.oneOf([400,422]); });",
+            "pm.test('[EC-002] No 500 Internal Server Error – empty body handled gracefully', () => { pm.expect(pm.response.code).to.not.equal(500); });"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{base_url}}/api/employees", "host": ["{{base_url}}"], "path": ["api","employees"] }
+          }
+        },
+        {
+          "name": "EC-003 | POST /api/trainings/assign – Past Due Date Boundary Check",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('[EC-003] Status noted – past due_date should be rejected or flagged with warning', () => {",
+            "  const code = pm.response.code;",
+            "  console.log('[EC-003] Actual status:', code, '| Expected: 400/422 to reject, or 201 with overdue flag');",
+            "  pm.expect(code).to.be.oneOf([201,400,422]);",
+            "});",
+            "if (pm.response.code===201) { const json = pm.response.json(); pm.test('[EC-003] If accepted: overdue warning flag present', () => { pm.expect(json.warning || json.overdue || (json.status && json.status.toLowerCase().includes('overdue')),'Past due date silently accepted – compliance risk').to.exist; }); }"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"employee_id\": \"{{employee_id}}\",\n  \"training_id\": \"{{training_id}}\",\n  \"due_date\": \"2020-01-01\"\n}" },
+            "url": { "raw": "{{base_url}}/api/trainings/assign", "host": ["{{base_url}}"], "path": ["api","trainings","assign"] }
+          }
+        }
+      ]
+    }
+  ]
+}
